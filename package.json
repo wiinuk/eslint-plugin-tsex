@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-tsex",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "This plugin contains ESLint rules that use typescript type information.",
   "main": "dist/index.js",
   "files": [
