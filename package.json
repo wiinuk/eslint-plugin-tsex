@@ -3,7 +3,19 @@
   "version": "0.1.0",
   "description": "This plugin contains ESLint rules that use typescript type information.",
   "main": "dist/index.js",
-  "scripts": {},
+  "files": [
+    "LICENSE",
+    "README.md",
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "scripts": {
+    "build": "tsc --project ./tsconfig.build.json",
+    "lint": "eslint ./source",
+    "test": "jest",
+    "prepublishOnly": "npm run lint && npm run test",
+    "prepare": "npm run build"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/wiinuk/eslint-plugin-tsex.git"
@@ -20,6 +32,7 @@
   },
   "homepage": "https://github.com/wiinuk/eslint-plugin-tsex#readme",
   "devDependencies": {
+    "@types/eslint": "^8.2.2",
     "@types/jest": "^27.4.0",
     "@typescript-eslint/eslint-plugin": "^5.9.1",
     "@typescript-eslint/experimental-utils": "^5.9.1",
@@ -27,6 +40,8 @@
     "eslint": "^8.6.0",
     "jest": "^27.4.7",
     "prettier": "^2.5.1",
+    "ts-jest": "^27.1.2",
+    "tsutils": "^3.21.0",
     "typescript": "^4.5.4"
   }
 }
