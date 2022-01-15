@@ -1,27 +1,25 @@
-import { TSESLint } from "@typescript-eslint/experimental-utils";
+import { createTester } from "../tester-extensions";
 import rule from "./no-unused-optional-chain";
 
-const tester = new TSESLint.RuleTester({
-    parser: require.resolve("@typescript-eslint/parser"),
-});
+const tester = createTester();
 tester.run("no-unused-optional-chain", rule, {
     valid: [
         {
-            code: "('' as ('' | '❗NULL'))?.toLowerCase()",
+            code: `(Math.random() ? "" : null)?.toLowerCase()`,
         },
         {
-            code: "('' as ('' | '❗NULL'))?.[0]",
+            code: `(Math.random() ? "" : null)?.[0]`,
         },
     ],
     invalid: [
         {
-            code: `''?.toLowerCase()`,
-            output: "''.toLowerCase()",
+            code: `""?.toLowerCase()`,
+            output: `"".toLowerCase()`,
             errors: [{ messageId: "replace_unneeded_QuestionDot_with_Dot" }],
         },
         {
-            code: `''?.[0]`,
-            output: "''[0]",
+            code: `""?.[0]`,
+            output: `""[0]`,
             errors: [{ messageId: "remove_unneeded_QuestionDot" }],
         },
     ],

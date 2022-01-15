@@ -9,7 +9,6 @@ function isNullableType(checker: ts.TypeChecker, node: ts.Node) {
     const nodeType = checker.getTypeAtLocation(node);
     for (const t of tsutils.unionTypeParts(checker.getApparentType(nodeType))) {
         if (t.flags & nullOrUndefinedTypeFlag) return true;
-        if (t.isStringLiteral() && t.value === "❗NULL") return true;
     }
     return false;
 }

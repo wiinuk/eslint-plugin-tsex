@@ -1,9 +1,7 @@
-import { TSESLint } from "@typescript-eslint/experimental-utils";
 import rule from "./no-unused-await";
+import { createTester } from "../tester-extensions";
 
-const tester = new TSESLint.RuleTester({
-    parser: require.resolve("@typescript-eslint/parser"),
-});
+const tester = createTester();
 tester.run("no-unused-await", rule, {
     valid: [
         {
