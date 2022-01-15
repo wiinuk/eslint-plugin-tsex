@@ -1,6 +1,3 @@
-export function id<T>(x: T) {
-    return x;
-}
 export function error(
     template: TemplateStringsArray,
     ...substitutions: unknown[]

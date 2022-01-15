@@ -1,5 +1,5 @@
 import rule from "./no-unused-await";
-import { createTester } from "../tester-extensions";
+import { createTester } from "../ts-eslint-extensions";
 
 const tester = createTester();
 tester.run("no-unused-await", rule, {

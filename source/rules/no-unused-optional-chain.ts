@@ -1,7 +1,8 @@
 import * as tsutils from "tsutils";
 import ts from "typescript";
-import { TSESLint } from "@typescript-eslint/experimental-utils";
-import { error, id, unreachable } from "../standard-extensions";
+import { error, unreachable } from "../standard-extensions";
+import { getLocation } from "../ts-node-extensions";
+import { createRule } from "../ts-eslint-extensions";
 
 const nullOrUndefinedTypeFlag = ts.TypeFlags.Null | ts.TypeFlags.Undefined;
 
@@ -12,27 +13,8 @@ function isNullableType(checker: ts.TypeChecker, node: ts.Node) {
     }
     return false;
 }
-function getPosition(source: ts.SourceFile, position: number) {
-    const { line, character } = source.getLineAndCharacterOfPosition(position);
-    return {
-        line: line + 1,
-        column: character,
-    };
-}
-function getLocation(sourceFile: ts.SourceFile, start: number, end: number) {
-    return {
-        start: getPosition(sourceFile, start),
-        end: getPosition(sourceFile, end),
-    };
-}
-
-type MessageIds =
-    | "DEBUG_show"
-    | "replace_unneeded_QuestionDot_with_Dot"
-    | "remove_unneeded_QuestionDot";
-
-export default id<TSESLint.RuleModule<MessageIds>>({
-    meta: {
+export default createRule(
+    {
         docs: {
             description: "Detect unneeded 'await'.",
             recommended: "warn",
@@ -47,10 +29,10 @@ export default id<TSESLint.RuleModule<MessageIds>>({
                 "Replace unneeded '?.' with '.'.",
             remove_unneeded_QuestionDot: "Remove unneeded '?.'.",
         },
-        schema: [],
         type: "suggestion",
     },
-    create(context) {
+    [],
+    (context) => {
         const parserServices =
             context.parserServices ?? error`No parser services available`;
         const checker = parserServices.program.getTypeChecker();
@@ -91,5 +73,5 @@ export default id<TSESLint.RuleModule<MessageIds>>({
                 }
             },
         };
-    },
-});
+    }
+);

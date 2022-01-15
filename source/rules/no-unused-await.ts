@@ -1,7 +1,8 @@
 import ts from "typescript";
 import * as tsutils from "tsutils";
-import { TSESLint } from "@typescript-eslint/experimental-utils";
-import { error, id } from "../standard-extensions";
+import { error } from "../standard-extensions";
+import { getLocation } from "../ts-node-extensions";
+import { createRule } from "../ts-eslint-extensions";
 
 function isFunctionType(
     checker: ts.TypeChecker,
@@ -44,25 +45,9 @@ function isPromiseLike(checker: ts.TypeChecker, node: ts.Node) {
     }
     return false;
 }
-function getPosition(sourceFile: ts.SourceFile, position: number) {
-    const { line, character } =
-        sourceFile.getLineAndCharacterOfPosition(position);
-    return {
-        line: line + 1,
-        column: character,
-    };
-}
-function getLocation(sourceFile: ts.SourceFile, start: number, end: number) {
-    return {
-        start: getPosition(sourceFile, start),
-        end: getPosition(sourceFile, end),
-    };
-}
 
-type MessageIds = "remove_unneeded_await";
-
-export default id<TSESLint.RuleModule<MessageIds>>({
-    meta: {
+export default createRule(
+    {
         docs: {
             description: "Detect unneeded 'await'.",
             recommended: "warn",
@@ -74,10 +59,10 @@ export default id<TSESLint.RuleModule<MessageIds>>({
         messages: {
             remove_unneeded_await: "Remove unneeded 'await'.",
         },
-        schema: [],
         type: "suggestion",
     },
-    create(context) {
+    [],
+    (context) => {
         const parserServices =
             context.parserServices ?? error`parserServices is undefined`;
         const checker = parserServices.program.getTypeChecker();
@@ -106,5 +91,5 @@ export default id<TSESLint.RuleModule<MessageIds>>({
                 }
             },
         };
-    },
-});
+    }
+);
