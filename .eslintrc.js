@@ -27,6 +27,10 @@ const config = {
             "warn",
             { ignoreVoid: true },
         ],
+        "@typescript-eslint/no-unused-vars": [
+            "warn",
+            { varsIgnorePattern: "^_" },
+        ],
         "object-shorthand": "warn",
         "no-useless-rename": "warn",
         "no-duplicate-imports": "warn",
