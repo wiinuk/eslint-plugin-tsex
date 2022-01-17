@@ -5,34 +5,59 @@ import { error } from "../standard-extensions";
 import { createRule } from "../ts-eslint-extensions";
 import { NonReadonly } from "../type-level/standard-extensions";
 
-function getUseStrictPosition(parent: ts.Node) {
+function hasDirective(
+    statements: ts.NodeArray<ts.Statement>,
+    directive: ts.StringLiteral
+) {
+    for (const statement of statements) {
+        if (ts.isExpressionStatement(statement)) {
+            const { expression } = statement;
+            if (ts.isStringLiteral(expression)) {
+                if (expression === directive) {
+                    return true;
+                } else {
+                    continue;
+                }
+            }
+        }
+        break;
+    }
+    return false;
+}
+/** @internal */
+export function isDirectiveExpression(
+    expression: ts.Node
+): expression is ts.StringLiteral {
+    if (!ts.isStringLiteral(expression)) return false;
+
+    const parent = expression.parent;
+    if (!ts.isExpressionStatement(parent)) return false;
+
+    const container = parent.parent;
     if (
         // `function f() { "use strict"; }`
-        ts.isFunctionDeclaration(parent) ||
+        ts.isFunctionDeclaration(container) ||
         // `class C { f() { "use strict"; } }`
-        ts.isMethodDeclaration(parent) ||
+        ts.isMethodDeclaration(container) ||
         // `class C { constructor() { "use strict"; } }`
-        ts.isConstructorDeclaration(parent) ||
+        ts.isConstructorDeclaration(container) ||
         // `class C { get f() { "use strict"; } }`
-        ts.isAccessor(parent) ||
+        ts.isAccessor(container) ||
         // `function() { "use strict"; }`
-        ts.isFunctionExpression(parent) ||
+        ts.isFunctionExpression(container) ||
         // `() => { "use strict"; }`
-        ts.isArrowFunction(parent)
+        ts.isArrowFunction(container)
     ) {
-        const { body } = parent;
-        return body && ts.isBlock(body) ? body.statements[0] : body;
+        const { body } = container;
+        if (body && ts.isBlock(body)) {
+            return hasDirective(body.statements, expression);
+        }
     }
     if (
         // `"use strict";`
-        ts.isSourceFile(parent)
+        ts.isSourceFile(container)
     ) {
-        return parent.statements[0];
-    }
-}
-function isDirective(expression: ts.Node) {
-    if (ts.isStringLiteral(expression) && expression.text === "use strict") {
-        return getUseStrictPosition(expression.parent) === expression;
+        return hasDirective(container.statements, expression);
     }
     return false;
 }
@@ -48,7 +73,9 @@ function uniqueName(symbolTable: Set<ts.__String>, prefix: string) {
     } while (symbolTable.has(ts.escapeLeadingUnderscores(name)));
     return name;
 }
-function findSideEffectNode(node: ts.Node) {
+
+/** @internal */
+export function findSideEffectNode(node: ts.Node) {
     function visit(node: ts.Node): ts.Node | undefined {
         if (ts.isBinaryExpression(node)) {
             switch (node.operatorToken.kind) {
@@ -159,7 +186,8 @@ function findSideEffectNode(node: ts.Node) {
     }
     return visit(node);
 }
-const enum Precedence {
+/** @internal */
+export const enum Precedence {
     Parenthesis = 19,
     MaxValue = Parenthesis,
     Call = 18,
@@ -182,10 +210,8 @@ const enum Precedence {
     Comma = 1,
     MinValue = Comma,
 }
-function getPrecedence(node: ts.Node) {
-    if (ts.isParenthesizedExpression(node)) {
-        return Precedence.Parenthesis;
-    }
+/** @internal */
+export function getPrecedence(node: ts.Node) {
     if (
         ts.isPropertyAccessExpression(node) ||
         ts.isElementAccessExpression(node) ||
@@ -276,6 +302,7 @@ function getPrecedence(node: ts.Node) {
     if (ts.isConditionalExpression(node)) {
         return Precedence.Conditional;
     }
+    return Precedence.Parenthesis;
 }
 export default createRule(
     {
@@ -299,6 +326,10 @@ export default createRule(
     },
     [],
     (context) => {
+        type Suggest = NonReadonly<
+            NonNullable<Parameters<typeof context.report>[0]["suggest"]>
+        >[number];
+
         const parserServices =
             context.parserServices ?? error`parserServices is undefined`;
         const checker = parserServices.program.getTypeChecker();
@@ -321,56 +352,45 @@ export default createRule(
         }
 
         const typeFlagVoidLike = ts.TypeFlags.VoidLike;
-        function validateExpression(node: TSESTree.Expression) {
+        function validateExpression(
+            parentNode:
+                | TSESTree.SequenceExpression
+                | TSESTree.ExpressionStatement,
+            node: TSESTree.Expression
+        ) {
             const expression = parserServices.esTreeNodeToTSNodeMap.get(node);
             const type = checker.getTypeAtLocation(expression);
-
-            // `"use strict"` は無視する
-            if (isDirective(expression)) return;
 
             // void または undefined 型は副作用を表す
             if (type.getFlags() & typeFlagVoidLike) return;
 
+            // `"use strict"` などは無視する
+            if (isDirectiveExpression(expression)) return;
+
             // 純粋でないっぽい式は無視する
             if (findSideEffectNode(expression) !== undefined) return;
 
-            // void を付けて明示的に無視する提案
-            const suggest: NonReadonly<
-                NonNullable<Parameters<typeof context.report>[0]["suggest"]>
-            > = [
+            const suggest: Suggest[] = [
+                // void を付けて明示的に無視する提案
                 {
                     messageId: "add_void_to_explicitly_ignore_the_value",
                     fix(fixer) {
-                        if (
-                            getPrecedence(expression) ??
-                            Precedence.MinValue < Precedence.Prefix
-                        ) {
+                        const precedence =
+                            getPrecedence(expression) ?? Precedence.MinValue;
+                        const voidPrecedence = Precedence.Prefix;
+                        if (precedence < voidPrecedence) {
                             return [
-                                fixer.insertTextAfter(node, "void ("),
-                                fixer.insertTextBefore(node, ")"),
+                                fixer.insertTextBefore(node, "void ("),
+                                fixer.insertTextAfter(node, ")"),
                             ];
                         } else {
-                            return fixer.insertTextAfter(node, "void ");
+                            return fixer.insertTextBefore(node, "void ");
                         }
                     },
                 },
             ];
 
-            // 本当に pure なら削除する提案
-            const { parent } = expression;
-            if (
-                findSideEffectNode(expression) !== undefined &&
-                (ts.isExpressionStatement(parent) ||
-                    ts.isBinaryExpression(parent))
-            ) {
-                suggest.push({
-                    messageId: "remove_unused_expressions",
-                    fix(fixer) {
-                        const range = getRemoveExpressionRange(parent);
-                        return fixer.removeRange(range);
-                    },
-                });
-            }
+            const parent = parserServices.esTreeNodeToTSNodeMap.get(parentNode);
 
             // 親要素が statement であれば代入を生成する提案
             if (ts.isExpressionStatement(parent)) {
@@ -392,11 +412,30 @@ export default createRule(
                     },
                 });
             }
-            context.report({
-                node,
-                messageId: "the_calculation_results_will_not_be_used",
-                suggest,
-            });
+            // 削除する提案
+            const removeFix: Suggest = {
+                messageId: "remove_unused_expressions",
+                fix(fixer) {
+                    const range = getRemoveExpressionRange(parent);
+                    return fixer.removeRange(range);
+                },
+            };
+            // 本当に純粋なら削除提案を自動修正の対象にする
+            if (findSideEffectNode(expression) === undefined) {
+                context.report({
+                    messageId: removeFix.messageId,
+                    node,
+                    fix: removeFix.fix,
+                    suggest,
+                });
+            } else {
+                suggest.push(removeFix);
+                context.report({
+                    node,
+                    messageId: "the_calculation_results_will_not_be_used",
+                    suggest,
+                });
+            }
         }
 
         return {
@@ -406,11 +445,11 @@ export default createRule(
                     // 最後の要素を除く
                     if (index === expressions.length - 1) return;
 
-                    validateExpression(expression);
+                    validateExpression(node, expression);
                 });
             },
             ExpressionStatement(node) {
-                validateExpression(node.expression);
+                validateExpression(node, node.expression);
             },
         };
     }
