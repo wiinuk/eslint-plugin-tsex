@@ -74,114 +74,133 @@ function uniqueName(symbolTable: Set<ts.__String>, prefix: string) {
     return name;
 }
 
+function isPrimitiveType(checker: ts.TypeChecker, node: ts.Node) {
+    const type = checker.getApparentType(checker.getTypeAtLocation(node));
+    return (type.flags & ts.TypeFlags.NonPrimitive) === 0;
+}
+function isSideEffectNode(checker: ts.TypeChecker, node: ts.Node) {
+    if (ts.isBinaryExpression(node)) {
+        switch (node.operatorToken.kind) {
+            // 代入演算子
+            // `=`
+            case SyntaxKind.FirstAssignment:
+            // `+=`
+            case SyntaxKind.PlusEqualsToken:
+            // `-=`
+            case SyntaxKind.MinusEqualsToken:
+            // `*=`
+            case SyntaxKind.AsteriskEqualsToken:
+            // `/=`
+            case SyntaxKind.SlashEqualsToken:
+            // `%=`
+            case SyntaxKind.PercentEqualsToken:
+            // `<<=`
+            case SyntaxKind.LessThanLessThanEqualsToken:
+            // `>>=`
+            case SyntaxKind.GreaterThanGreaterThanEqualsToken:
+            // `>>>=`
+            case SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken:
+            // `&=`
+            case SyntaxKind.AmpersandEqualsToken:
+            // `^=`
+            case SyntaxKind.CaretEqualsToken:
+            // `|=`
+            case SyntaxKind.BarEqualsToken:
+                return true;
+
+            // valueOf が呼ばれるかも
+            // `==`
+            case SyntaxKind.EqualsEqualsToken:
+            // `!=`
+            case SyntaxKind.ExclamationEqualsToken:
+            // `<`
+            case SyntaxKind.LessThanToken:
+            // `>`
+            case SyntaxKind.GreaterThanToken:
+            // `<=`
+            case SyntaxKind.LessThanEqualsToken:
+            // `>=`
+            case SyntaxKind.GreaterThanEqualsToken:
+            // `<<`
+            case SyntaxKind.LessThanLessThanToken:
+            // `>>`
+            case SyntaxKind.GreaterThanGreaterThanToken:
+            // `>>>`
+            case SyntaxKind.GreaterThanGreaterThanGreaterThanToken:
+            // `+`
+            case SyntaxKind.PlusToken:
+            // `-`
+            case SyntaxKind.MinusToken:
+            // `*`
+            case SyntaxKind.AsteriskToken:
+            // `/`
+            case SyntaxKind.SlashToken:
+            // `%`
+            case SyntaxKind.PercentToken:
+            // `&`
+            case SyntaxKind.AmpersandToken:
+            // `^`
+            case SyntaxKind.CaretToken:
+            // `|`
+            case SyntaxKind.BarToken:
+            // `in`
+            case SyntaxKind.InKeyword: {
+                // 両方の被演算式の型がプリミティブなら valueOf や toString を呼ばないので副作用がない
+                if (
+                    isPrimitiveType(checker, node.left) &&
+                    isPrimitiveType(checker, node.right)
+                ) {
+                    return false;
+                }
+                return true;
+            }
+        }
+    }
+    // `await e`
+    if (ts.isAwaitExpression(node)) return true;
+    // `f()`, `new C`, `f```, `@d`, `<t>`
+    if (ts.isCallLikeExpression(node)) return true;
+    // `delete e`
+    if (ts.isDeleteExpression(node)) return true;
+    if (ts.isPrefixUnaryExpression(node)) {
+        switch (node.operator) {
+            // 副作用
+            // `++e`
+            case SyntaxKind.PlusPlusToken:
+            // `--e`
+            case SyntaxKind.MinusMinusToken:
+                return true;
+
+            // valueOf が呼ばれるかも
+            // `-e`
+            case SyntaxKind.MinusToken:
+            // `+e`
+            case SyntaxKind.PlusToken:
+            // `!`
+            case SyntaxKind.ExclamationToken:
+            // `~`
+            case SyntaxKind.TildeToken: {
+                // 被演算式の型がプリミティブなら valueOf や toString を呼ばないので副作用がない
+                if (isPrimitiveType(checker, node.operand)) return false;
+                return true;
+            }
+        }
+    }
+    // `e++`, `e--`
+    if (ts.isPostfixUnaryExpression(node)) return true;
+    // `yield e`
+    if (ts.isYieldExpression(node)) return true;
+    // `e.p``
+    if (ts.isPropertyAccessExpression(node)) return true;
+    // `e[i]`
+    if (ts.isElementAccessExpression(node)) return true;
+
+    return false;
+}
 /** @internal */
-export function findSideEffectNode(node: ts.Node) {
+export function findSideEffectNode(checker: ts.TypeChecker, node: ts.Node) {
     function visit(node: ts.Node): ts.Node | undefined {
-        if (ts.isBinaryExpression(node)) {
-            switch (node.operatorToken.kind) {
-                // 代入演算子
-                // `=`
-                case SyntaxKind.FirstAssignment:
-                // `+=`
-                case SyntaxKind.PlusEqualsToken:
-                // `-=`
-                case SyntaxKind.MinusEqualsToken:
-                // `*=`
-                case SyntaxKind.AsteriskEqualsToken:
-                // `/=`
-                case SyntaxKind.SlashEqualsToken:
-                // `%=`
-                case SyntaxKind.PercentEqualsToken:
-                // `<<=`
-                case SyntaxKind.LessThanLessThanEqualsToken:
-                // `>>=`
-                case SyntaxKind.GreaterThanGreaterThanEqualsToken:
-                // `>>>=`
-                case SyntaxKind.GreaterThanGreaterThanGreaterThanEqualsToken:
-                // `&=`
-                case SyntaxKind.AmpersandEqualsToken:
-                // `^=`
-                case SyntaxKind.CaretEqualsToken:
-                // `|=`
-                case SyntaxKind.BarEqualsToken:
-
-                // valueOf が呼ばれるかも
-                // `==`
-                case SyntaxKind.EqualsEqualsToken:
-                // `!=`
-                case SyntaxKind.ExclamationEqualsToken:
-                // `<`
-                case SyntaxKind.LessThanToken:
-                // `>`
-                case SyntaxKind.GreaterThanToken:
-                // `<=`
-                case SyntaxKind.LessThanEqualsToken:
-                // `>=`
-                case SyntaxKind.GreaterThanEqualsToken:
-                // `<<`
-                case SyntaxKind.LessThanLessThanToken:
-                // `>>`
-                case SyntaxKind.GreaterThanGreaterThanToken:
-                // `>>>`
-                case SyntaxKind.GreaterThanGreaterThanGreaterThanToken:
-                // `+`
-                case SyntaxKind.PlusToken:
-                // `-`
-                case SyntaxKind.MinusToken:
-                // `*`
-                case SyntaxKind.AsteriskToken:
-                // `/`
-                case SyntaxKind.SlashToken:
-                // `%`
-                case SyntaxKind.PercentToken:
-                // `&`
-                case SyntaxKind.AmpersandToken:
-                // `^`
-                case SyntaxKind.CaretToken:
-                // `|`
-                case SyntaxKind.BarToken:
-                // `in`
-                case SyntaxKind.InKeyword:
-                    return node;
-            }
-        }
-        // `await e`
-        if (ts.isAwaitExpression(node)) return node;
-        // `f()`, `new C`, `f```, `@d`, `<t>`
-        if (ts.isCallLikeExpression(node)) return node;
-        // `delete e`
-        if (ts.isDeleteExpression(node)) return node;
-        if (ts.isPrefixUnaryExpression(node)) {
-            switch (node.operator) {
-                // 副作用
-                // `++e`
-                case SyntaxKind.PlusPlusToken:
-                // `--e`
-                case SyntaxKind.MinusMinusToken:
-
-                // valueOf が呼ばれるかも
-                // `-e`
-                case SyntaxKind.MinusToken:
-                // `+e`
-                case SyntaxKind.PlusToken:
-                // `!`
-                case SyntaxKind.ExclamationToken:
-                // `~`
-                case SyntaxKind.TildeToken:
-                    return node;
-            }
-        }
-        // `e++`, `e--`
-        if (ts.isPostfixUnaryExpression(node)) {
-            return node;
-        }
-        // `yield e`
-        if (ts.isYieldExpression(node)) return node;
-        // `e.p``
-        if (ts.isPropertyAccessExpression(node)) return node;
-        // `e[i]`
-        if (ts.isElementAccessExpression(node)) return node;
-
+        if (isSideEffectNode(checker, node)) return node;
         return ts.forEachChild(node, visit);
     }
     return visit(node);
@@ -368,7 +387,7 @@ export default createRule(
             if (isDirectiveExpression(expression)) return;
 
             // 純粋でないっぽい式は無視する
-            if (findSideEffectNode(expression) !== undefined) return;
+            if (findSideEffectNode(checker, expression) !== undefined) return;
 
             const suggest: Suggest[] = [
                 // void を付けて明示的に無視する提案
@@ -421,7 +440,7 @@ export default createRule(
                 },
             };
             // 本当に純粋なら削除提案を自動修正の対象にする
-            if (findSideEffectNode(expression) === undefined) {
+            if (findSideEffectNode(checker, expression) === undefined) {
                 context.report({
                     messageId: removeFix.messageId,
                     node,

@@ -64,7 +64,7 @@ function tsFile(template: TemplateStringsArray, ...substitutions: unknown[]) {
         throw new Error(ts.formatDiagnostics(diagnostics, host));
     }
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    return { sourceFile: program.getSourceFile(fileName)! };
+    return { program, sourceFile: program.getSourceFile(fileName)! };
 }
 function tsExpr(template: TemplateStringsArray, ...substitutions: unknown[]) {
     const file = tsFile`${String.raw(template, ...substitutions)};`;
@@ -82,8 +82,11 @@ function print(node: ts.Node | undefined) {
         .printNode(ts.EmitHint.Unspecified, node, node.getSourceFile());
 }
 it("findSideEffectNode", () => {
-    const { sourceFile } = tsFile`1 === 1;`;
-    const sideEffectNode = findSideEffectNode(sourceFile);
+    const { sourceFile, program } = tsFile`1 === 1;`;
+    const sideEffectNode = findSideEffectNode(
+        program.getTypeChecker(),
+        sourceFile
+    );
     expect(print(sideEffectNode)).toBe(undefined);
     sourceFile;
 });
