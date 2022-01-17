@@ -160,6 +160,10 @@ tester.run("no-unused-pure-expression", rule, {
         {
             code: `var _ = (Date.now(), 0);`,
         },
+        // 副作用のある式 (number + object)
+        {
+            code: `1 + { valueOf() { console.log(); return 2 } };`,
+        },
         // ディレクティブには何もしない
         {
             code: `"use strict"; "unknown directive";`,
@@ -186,6 +190,8 @@ tester.run("no-unused-pure-expression", rule, {
             `( console.log());`,
             `(void 0, console.log());`
         ),
+        // 純粋な式 ( number + number )
+        pureStatementInvalid(`1 + 2;`, ``, `void (1 + 2);`, `const x = 1 + 2;`),
         // ディレクティブっぽいけどディレクティブでない式
         pureStatementInvalid(
             `console.log(); "use strict";`,
