@@ -167,6 +167,10 @@ tester.run("no-unused-pure-expression", rule, {
         {
             code: `"unknown directive"; "use strict";`,
         },
+        // undefined 型
+        {
+            code: `undefined;`,
+        },
     ],
     invalid: [
         // 本当に純粋な式は自動削除できる
