@@ -7,3 +7,6 @@ export function error(
 export function unreachable() {
     return error`Unreachable`;
 }
+export function id<T>(x: T) {
+    return x;
+}

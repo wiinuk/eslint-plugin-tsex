@@ -13,3 +13,5 @@ export type eq<T, S> = [T] extends [S]
         ? true
         : false
     : false;
+
+export type NonReadonly<T> = { -readonly [k in keyof T]: T[k] };
