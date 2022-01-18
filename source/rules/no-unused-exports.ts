@@ -1,4 +1,4 @@
-//spell-checker: ignore TSESLint TSESTree
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import utils, { TSESLint } from "@typescript-eslint/experimental-utils";
 import ts from "typescript";
 import type { DeepMutableJson, ReadonlyJsonValue } from "../type-level/json";
@@ -320,3 +320,61 @@ const rule = createRule(
     }
 );
 export default rule;
+
+const x = createRule(
+    {
+        messages: {
+            nameAndAge: "name: {{name:string}}, age: {{age:number}}.",
+            message: "message",
+        },
+        type: "suggestion",
+    } as const,
+    [],
+    (context) => {
+        return {
+            Program(node) {
+                // OK
+                context.report({
+                    node,
+                    messageId: "nameAndAge",
+                    data: { "name:string": "Bob", "age:number": 2 },
+                });
+                // @ts-expect-error data が指定されていないのでエラーになる
+                context.report({
+                    node,
+                    messageId: "nameAndAge",
+                });
+                // @ts-expect-error "age:string" がないのでエラーになる
+                context.report({
+                    node,
+                    messageId: "nameAndAge",
+                    data: { "name:string": "Alice" },
+                });
+                // @ts-expect-error age:number が string 型なのでエラーになる
+                context.report({
+                    node,
+                    messageId: "nameAndAge",
+                    data: { "name:string": "Bob", "age:number": "2" },
+                });
+
+                // OK
+                context.report({
+                    node,
+                    messageId: "message",
+                });
+                // OK
+                context.report({
+                    node,
+                    messageId: "message",
+                    data: {},
+                });
+                // @ts-expect-error name が指定されているのでエラーになる
+                context.report({
+                    node,
+                    messageId: "message",
+                    data: { name: "Alice" },
+                });
+            },
+        };
+    }
+);
