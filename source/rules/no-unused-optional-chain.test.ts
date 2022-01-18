@@ -1,4 +1,4 @@
-import { createTester } from "../ts-eslint-extensions";
+import { createTester } from "../ts-eslint-tester-extensions";
 import rule from "./no-unused-optional-chain";
 
 const tester = createTester();

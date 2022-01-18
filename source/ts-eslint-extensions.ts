@@ -4,20 +4,6 @@ import { DeepMutableJson, ReadonlyJsonValue } from "./type-level/json";
 import { SchemaList, typeOfSchema } from "./type-level/json-schema";
 import { cast } from "./type-level/standard-extensions";
 
-/** @internal */
-export function createTester() {
-    const parserOptions = {
-        ecmaVersion: 2018,
-        project: "./tsconfig.json",
-        createDefaultProgram: true,
-    } as const;
-    return new TSESLint.RuleTester({
-        parser: require.resolve("@typescript-eslint/parser"),
-        parserOptions,
-    });
-}
-
-// spell-checker:ignore TSESLint
 const clone = <T extends ReadonlyJsonValue>(json: T) =>
     JSON.parse(JSON.stringify(json)) as DeepMutableJson<T>;
 
