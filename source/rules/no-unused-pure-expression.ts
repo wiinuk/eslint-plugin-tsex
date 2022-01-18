@@ -323,6 +323,7 @@ export function getPrecedence(node: ts.Node) {
     }
     return Precedence.Parenthesis;
 }
+/** @internal */
 export default createRule(
     {
         docs: {

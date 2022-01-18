@@ -3,6 +3,7 @@ import { DeepMutableJson, ReadonlyJsonValue } from "./type-level/json";
 import { SchemaList, typeOfSchema } from "./type-level/json-schema";
 import { cast } from "./type-level/standard-extensions";
 
+/** @internal */
 export function createTester() {
     const parserOptions = {
         ecmaVersion: 2018,
@@ -27,13 +28,16 @@ type getOptions<TSchemas extends SchemaList> = {
     -readonly [i in keyof TSchemas]: typeOfSchema<TSchemas[i]>;
 };
 
+/** @internal */
 export type MessagesKind = Record<string, string>;
+/** @internal */
 export type MetadataWithoutSchema<TMessages extends MessagesKind> = Omit<
     TSESLint.RuleMetaData<getMessageIds<TMessages>>,
     "schema"
 > & {
     messages?: TMessages;
 };
+/** @internal */
 export function createRule<
     TMessages extends MessagesKind,
     TSchema extends SchemaList

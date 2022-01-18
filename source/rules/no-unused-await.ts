@@ -46,6 +46,7 @@ function isPromiseLike(checker: ts.TypeChecker, node: ts.Node) {
     return false;
 }
 
+/** @internal */
 export default createRule(
     {
         docs: {
