@@ -1,5 +1,6 @@
 import ts from "typescript";
 
+/** @internal */
 export function getPosition(source: ts.SourceFile, position: number) {
     const { line, character } = source.getLineAndCharacterOfPosition(position);
     return {
@@ -7,6 +8,7 @@ export function getPosition(source: ts.SourceFile, position: number) {
         column: character,
     };
 }
+/** @internal */
 export function getLocation(
     sourceFile: ts.SourceFile,
     start: number,

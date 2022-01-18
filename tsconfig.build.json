@@ -8,6 +8,7 @@
   ],
   "compilerOptions": {
     "outDir": "./dist",
-    "noEmit": false
+    "noEmit": false,
+    "stripInternal": true
   }
 }
