@@ -4,6 +4,7 @@ import { defaultValue, eq, getOrUndefined, kind } from "./standard-extensions";
 
 type Schema = DeepReadonlyJson<utils.JSONSchema.JSONSchema4>;
 
+/** @internal */
 export type SchemaList = readonly Schema[];
 type unreachable = never;
 type notImplementedErrorMessage = "❌error: not implemented";
@@ -109,6 +110,7 @@ type typeOfAnyOfProperty<TSchemas extends NonNullable<Schema["anyOf"]>> =
               -readonly [i in keyof TSchemas]: typeOfSchema<TSchemas[i]>;
           }[number];
 
+/** @internal */
 export type typeOfSchema<TSchema extends Schema> =
     // type プロパティがある場合
     "type" extends keyof TSchema
