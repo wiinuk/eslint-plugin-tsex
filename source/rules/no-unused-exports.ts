@@ -1,294 +1,31 @@
 //spell-checker: ignore TSESLint TSESTree
 import utils, { TSESLint } from "@typescript-eslint/experimental-utils";
 import ts from "typescript";
-import path from "path";
 import type { DeepMutableJson, ReadonlyJsonValue } from "../type-level/json";
 import type { cast } from "../type-level/standard-extensions";
 import type { SchemaList, typeOfSchema } from "../type-level/json-schema";
-
-const error = (template: TemplateStringsArray, ...substitutions: unknown[]) => {
-    throw new Error(String.raw(template, ...substitutions));
-};
-
-type FileName = string;
-type Position = number;
-const locationMapBrandSymbol = Symbol("_locationMapBrand");
-type LocationMap<T> = Map<FileName, Map<Position, T>> & {
-    [locationMapBrandSymbol]: unknown;
-};
-
-function newLocationMap<T>() {
-    return new Map() as LocationMap<T>;
-}
-function hasLocationMap<T>(
-    map: LocationMap<T>,
-    fileName: FileName,
-    position: Position
-) {
-    return !!map.get(fileName)?.has(position);
-}
-function setLocationMap<T>(
-    map: LocationMap<T>,
-    fileName: FileName,
-    position: Position,
-    value: T
-) {
-    let m = map.get(fileName);
-    if (m === undefined) {
-        map.set(fileName, (m = new Map()));
-    }
-    m.set(position, value);
-}
-function forEachLocationMap<T>(
-    map: LocationMap<T>,
-    action: (value: T, fileName: FileName, position: Position) => void
-) {
-    return map.forEach((fileMap, fileName) =>
-        fileMap.forEach((value, position) => action(value, fileName, position))
-    );
-}
-
-type DeclarationSet = LocationMap<ts.Declaration>;
-const newDeclarationSet: () => DeclarationSet = newLocationMap;
-function hasDeclarationSet<T>(
-    set: LocationMap<T>,
-    declaration: ts.Declaration
-) {
-    return hasLocationMap(
-        set,
-        declaration.getSourceFile().fileName,
-        declaration.getStart()
-    );
-}
-function setDeclarationSet(set: DeclarationSet, declaration: ts.Declaration) {
-    return setLocationMap(
-        set,
-        declaration.getSourceFile().fileName,
-        declaration.getStart(),
-        declaration
-    );
-}
-function popDeclarationSet(set: DeclarationSet) {
-    for (const [fileName, fileMap] of set) {
-        for (const [position, declaration] of fileMap) {
-            fileMap.delete(position);
-            if (fileMap.size === 0) {
-                set.delete(fileName);
-            }
-            return declaration;
-        }
-    }
-}
-function isEmptyDeclarationSet(set: DeclarationSet) {
-    return set.size === 0;
-}
-
-function getParserServicesOrError(context: RuleContext) {
-    return context.parserServices ?? error`ParserServices not available`;
-}
-
-function getExportSymbols(program: ts.Program, sourceFile: ts.SourceFile) {
-    const checker = program.getTypeChecker();
-    const sourceFileSymbol = checker.getSymbolAtLocation(sourceFile);
-    if (sourceFileSymbol === undefined) return;
-    return checker.getExportsOfModule(sourceFileSymbol);
-}
-function forEachExports(
-    program: ts.Program,
-    sourceFile: ts.SourceFile,
-    action: (declaration: ts.Declaration) => void
-) {
-    getExportSymbols(program, sourceFile)?.forEach((s) =>
-        s.declarations?.forEach(action)
-    );
-}
-function collectExports(
-    program: ts.Program,
-    sourceFile: ts.SourceFile,
-    result: DeclarationSet
-) {
-    return forEachExports(program, sourceFile, (d) =>
-        setDeclarationSet(result, d)
-    );
-}
-
-function isReferenceIdentifier(
-    checker: ts.TypeChecker,
-    node: ts.Node
-): node is ts.Identifier {
-    if (!ts.isIdentifier(node)) {
-        return false;
-    }
-    const identifierIsDeclarationName =
-        checker
-            .getSymbolAtLocation(node)
-            ?.declarations?.some((d) => ts.getNameOfDeclaration(d) === node) ??
-        false;
-    return !identifierIsDeclarationName;
-}
-
-const AliasSymbolFlag = ts.SymbolFlags.Alias;
-function resolveDeclarationsOfIdentifier(
-    program: ts.Program,
-    checker: ts.TypeChecker,
-    identifier: ts.Identifier,
-    result: DeclarationSet
-) {
-    let symbol = checker.getSymbolAtLocation(identifier);
-    if (symbol === undefined) return;
-    symbol =
-        (symbol.flags & AliasSymbolFlag) !== 0
-            ? checker.getAliasedSymbol(symbol)
-            : symbol;
-
-    const { declarations } = symbol;
-    if (declarations === undefined) return;
-    for (const declaration of declarations) {
-        if (declaration === undefined) continue;
-        const sourceFile = declaration.getSourceFile();
-        if (
-            program.isSourceFileFromExternalLibrary(sourceFile) ||
-            program.isSourceFileDefaultLibrary(sourceFile)
-        ) {
-            continue;
-        }
-        setDeclarationSet(result, declaration);
-    }
-}
-function collectAllReferencedDeclarations(
-    program: ts.Program,
-    node: ts.Node,
-    result: DeclarationSet
-) {
-    const checker = program.getTypeChecker();
-    function collect(node: ts.Node) {
-        if (isReferenceIdentifier(checker, node)) {
-            resolveDeclarationsOfIdentifier(program, checker, node, result);
-        }
-        node.forEachChild(collect);
-    }
-    collect(node);
-}
-
-function resolveUsingDeclarationsByRoots(
-    program: ts.Program,
-    roots: Readonly<DeclarationSet>
-) {
-    const aliveSet = newDeclarationSet();
-
-    const visitingDeclarations = newDeclarationSet();
-    forEachLocationMap(roots, (d) =>
-        setDeclarationSet(visitingDeclarations, d)
-    );
-
-    let visitingDeclaration;
-    while (
-        // 訪問中セットから1つ抜き出す
-        (visitingDeclaration = popDeclarationSet(visitingDeclarations))
-    ) {
-        // 既に生存確認済みなら次へ
-        if (hasDeclarationSet(aliveSet, visitingDeclaration)) continue;
-        setDeclarationSet(aliveSet, visitingDeclaration);
-
-        // 訪問中の宣言を参照している宣言を訪問中セットに追加する
-        collectAllReferencedDeclarations(
-            program,
-            visitingDeclaration,
-            visitingDeclarations
-        );
-    }
-    return aliveSet;
-}
+import {
+    DeclarationSet,
+    hasDeclarationSet,
+    isEmptyDeclarationSet,
+    newDeclarationSet,
+    setDeclarationSet,
+} from "../declaration-set";
+import { forEachLocationMap } from "../location-map";
+import {
+    collectAllReferencedDeclarations,
+    resolveUsingDeclarationsByRoots,
+} from "../alive-declaration-resolver";
+import { getParserServicesOrError } from "../ts-eslint-extensions";
+import { appendRoot, createCollector, RootCollector } from "../root-collector";
+import { collectExports, forEachExports } from "../ts-node-extensions";
 
 type RuleContext = Parameters<typeof rule["create"]>[0];
 type ReportDescriptorWithoutLocation = Omit<
     Parameters<RuleContext["report"]>[0],
     "loc" | "node"
 >;
-interface RootCollector {
-    context: RuleContext;
-    checker: ts.TypeChecker;
-    program: ts.Program;
-    rootDeclarations: DeclarationSet;
-    configLoadErrors: ReportDescriptorWithoutLocation[];
-}
-function createCollector(
-    context: RuleContext,
-    rootDeclarations: DeclarationSet,
-    configLoadErrors: ReportDescriptorWithoutLocation[]
-): RootCollector {
-    const parserServices = getParserServicesOrError(context);
-    const { program } = parserServices;
-    return {
-        context,
-        checker: program.getTypeChecker(),
-        program,
-        rootDeclarations,
-        configLoadErrors,
-    };
-}
 
-function appendRoot(
-    {
-        context,
-        checker,
-        program,
-        rootDeclarations,
-        configLoadErrors,
-    }: RootCollector,
-    rootFile: string,
-    exportName: string | undefined
-) {
-    // 絶対パスに変換
-    if (!path.isAbsolute(rootFile) && context.getCwd) {
-        rootFile = path.join(context.getCwd(), rootFile);
-    }
-    // ソースファイルを取得
-    const sourceFile = program.getSourceFile(rootFile);
-    if (sourceFile === undefined) {
-        configLoadErrors.push({
-            messageId: "__rootFile__not_found",
-            data: { rootFile },
-        });
-        return;
-    }
-    if (exportName === undefined) {
-        // エクスポート名が指定されていないなら全てのエクスポートを対象にする
-        collectExports(program, sourceFile, rootDeclarations);
-    } else {
-        // エクスポート名が指定されているなら名前が一致するエクスポートを対象にする
-        const exportSymbols = (
-            getExportSymbols(program, sourceFile) ?? []
-        ).filter((s) => checker.symbolToString(s) === exportName);
-
-        if (exportSymbols.length === 0) {
-            configLoadErrors.push({
-                messageId: "could_not_find_the__exportName__in__rootFile__",
-                data: {
-                    exportName,
-                    rootFile,
-                },
-            });
-        } else {
-            exportSymbols.forEach((s) =>
-                s.declarations?.forEach((d) =>
-                    setDeclarationSet(rootDeclarations, d)
-                )
-            );
-        }
-    }
-}
-function collectRoots(
-    collector: RootCollector,
-    roots: NonNullable<Options[0]["roots"]>
-) {
-    for (const root of roots) {
-        // ファイルの指定された名前の export 要素をルートに追加する
-        typeof root === "string"
-            ? appendRoot(collector, root, undefined)
-            : appendRoot(collector, ...root);
-    }
-}
 function forEachSourceFilesWithoutExternalLibrary(
     context: RuleContext,
     action: (sourceFile: ts.SourceFile) => void
@@ -348,7 +85,7 @@ function checkAllFileSemantics(context: RuleContext): ProgramSemantics {
     if (roots.length === 0 && isEmptyDeclarationSet(rootDeclarations)) {
         // roots が見つからないなら
         // どれかのソースファイルで参照されている宣言のみを使用していると判定する。
-        // 自己参照している宣言は使用しているとみなされる。
+        // この場合、自己参照している宣言は常に使用しているとみなされる。
         const aliveSet = resolveUsingDeclarationsByAnyFile(context);
         return {
             configLoadErrors,
@@ -358,11 +95,22 @@ function checkAllFileSemantics(context: RuleContext): ProgramSemantics {
         const collector = createCollector(
             context,
             rootDeclarations,
-            configLoadErrors
+            configLoadErrors,
+            (rootFile) => ({
+                messageId: "__rootFile__not_found",
+                data: { rootFile },
+            }),
+            (rootFile, exportName) => ({
+                messageId: "could_not_find_the__exportName__in__rootFile__",
+                data: {
+                    exportName,
+                    rootFile,
+                },
+            })
         );
         // roots オプションが指定されているなら
-        // 指定されたルートから辿れる宣言のみを使用していると判定する。
-        // 自己参照している宣言はルートからたどれる場合のみ使用しているとみなされる。
+        // ユーザーが指定したルートから辿れる宣言のみを使用していると判定する。
+        // この場合、自己参照している宣言はルートからたどれる場合のみ使用しているとみなされる。
         collectRoots(collector, roots);
 
         const aliveSet = resolveUsingDeclarationsByRoots(
@@ -382,11 +130,9 @@ interface Reporter {
     parserServices: utils.ParserServices;
 }
 function reportUnusedDeclaration(
-    reporter: Reporter,
+    { context, ignoreRegex, parserServices }: Reporter,
     declaration: ts.Declaration
 ) {
-    const { context, ignoreRegex, parserServices } = reporter;
-
     // 名前を表す要素を取得
     const declarationName = ts.getNameOfDeclaration(declaration);
     const varName = declarationName?.getText();
@@ -422,6 +168,20 @@ function reportUnusedDeclaration(
             data: { varName },
             suggest,
         });
+    }
+}
+function collectRoots<
+    TMessageIds extends string,
+    TOptions extends readonly unknown[]
+>(
+    collector: RootCollector<TMessageIds, TOptions>,
+    roots: NonNullable<Options[0]["roots"]>
+) {
+    for (const root of roots) {
+        // ファイルの指定された名前の export 要素をルートに追加する
+        typeof root === "string"
+            ? appendRoot(collector, root, undefined)
+            : appendRoot(collector, ...root);
     }
 }
 function checkProgram(

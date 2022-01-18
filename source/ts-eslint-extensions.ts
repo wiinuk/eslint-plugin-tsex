@@ -1,4 +1,5 @@
 import { TSESLint } from "@typescript-eslint/experimental-utils";
+import { error } from "./standard-extensions";
 import { DeepMutableJson, ReadonlyJsonValue } from "./type-level/json";
 import { SchemaList, typeOfSchema } from "./type-level/json-schema";
 import { cast } from "./type-level/standard-extensions";
@@ -53,4 +54,11 @@ export function createRule<
         meta: { ...meta, schema: clone(schema) },
         create,
     };
+}
+/** @internal */
+export function getParserServicesOrError<
+    TMessageIds extends string,
+    TOptions extends readonly unknown[]
+>(context: TSESLint.RuleContext<TMessageIds, TOptions>) {
+    return context.parserServices ?? error`ParserServices not available`;
 }
