@@ -1,5 +1,6 @@
 /* eslint-disable no-fallthrough */
 import { TSESTree } from "@typescript-eslint/experimental-utils";
+import { RuleFixer } from "@typescript-eslint/experimental-utils/dist/ts-eslint";
 import ts, { SyntaxKind } from "typescript";
 import { error } from "../standard-extensions";
 import { createRule } from "../ts-eslint-extensions";
@@ -343,7 +344,7 @@ export default createRule(
             assign_to_a_new_variable: "Assign to a new variable.",
         },
         type: "suggestion",
-    },
+    } as const,
     [],
     (context) => {
         type Suggest = NonReadonly<
@@ -433,13 +434,13 @@ export default createRule(
                 });
             }
             // 削除する提案
-            const removeFix: Suggest = {
+            const removeFix = {
                 messageId: "remove_unused_expressions",
-                fix(fixer) {
+                fix(fixer: RuleFixer) {
                     const range = getRemoveExpressionRange(parent);
                     return fixer.removeRange(range);
                 },
-            };
+            } as const;
             // 本当に純粋なら削除提案を自動修正の対象にする
             if (findSideEffectNode(checker, expression) === undefined) {
                 context.report({

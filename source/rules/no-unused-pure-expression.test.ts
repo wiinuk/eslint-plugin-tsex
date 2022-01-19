@@ -1,6 +1,6 @@
 import ts from "typescript";
 import { error } from "../standard-extensions";
-import { createTester } from "../ts-eslint-extensions";
+import { createTester } from "../ts-eslint-tester-extensions";
 import rule, {
     findSideEffectNode,
     getPrecedence,
