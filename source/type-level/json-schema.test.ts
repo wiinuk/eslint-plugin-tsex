@@ -3,7 +3,7 @@ import { typeOfSchema } from "./json-schema";
 import { eq } from "./standard-extensions";
 
 function assert<_T extends true>() {
-    /* 型レベルアサーション関数 */
+    /** 型レベルアサーション関数 */
 }
 
 const schema = {
