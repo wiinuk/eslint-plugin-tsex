@@ -1,9 +1,5 @@
-//spell-checker: ignore TSESLint TSESTree
-import utils, { TSESLint } from "@typescript-eslint/experimental-utils";
+import utils from "@typescript-eslint/experimental-utils";
 import ts from "typescript";
-import type { DeepMutableJson, ReadonlyJsonValue } from "../type-level/json";
-import type { cast } from "../type-level/standard-extensions";
-import type { SchemaList, typeOfSchema } from "../type-level/json-schema";
 import {
     DeclarationSet,
     hasDeclarationSet,
@@ -16,7 +12,7 @@ import {
     collectAllReferencedDeclarations,
     resolveUsingDeclarationsByRoots,
 } from "../alive-declaration-resolver";
-import { getParserServicesOrError } from "../ts-eslint-extensions";
+import { createRule, getParserServicesOrError } from "../ts-eslint-extensions";
 import { appendRoot, createCollector, RootCollector } from "../root-collector";
 import { collectExports, forEachExports } from "../ts-node-extensions";
 
@@ -200,8 +196,7 @@ function checkProgram(
     const { ignorePattern = null } = context.options[0];
     const ignoreRegex = ignorePattern ? new RegExp(ignorePattern) : null;
 
-    /** @type {Reporter} */
-    const reporter = {
+    const reporter: Reporter = {
         context,
         ignoreRegex,
         parserServices,
@@ -217,38 +212,6 @@ function checkProgram(
         reportUnusedDeclaration(reporter, exportedDeclaration);
     });
 }
-
-// spell-checker:ignore TSESLint
-const clone = <T extends ReadonlyJsonValue>(json: T) =>
-    JSON.parse(JSON.stringify(json)) as DeepMutableJson<T>;
-
-type getMessageIds<TMessages extends MessagesKind> = cast<
-    string,
-    keyof TMessages
->;
-type getOptions<TSchemas extends SchemaList> = {
-    -readonly [i in keyof TSchemas]: typeOfSchema<TSchemas[i]>;
-};
-
-type MessagesKind = Record<string, string>;
-type MetadataWithoutSchema<TMessages extends MessagesKind> = Omit<
-    TSESLint.RuleMetaData<getMessageIds<TMessages>>,
-    "schema"
-> & {
-    messages?: TMessages;
-};
-
-const createRule = <TMessages extends MessagesKind, TSchema extends SchemaList>(
-    meta: MetadataWithoutSchema<TMessages>,
-    schema: TSchema,
-    create: TSESLint.RuleCreateFunction<
-        getMessageIds<TMessages>,
-        getOptions<TSchema>
-    >
-): TSESLint.RuleModule<getMessageIds<TMessages>, getOptions<TSchema>> => ({
-    meta: { ...meta, schema: clone(schema) },
-    create,
-});
 
 type Options = Parameters<typeof rule["create"]>[0]["options"];
 const rule = createRule(
