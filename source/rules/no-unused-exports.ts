@@ -1,4 +1,3 @@
-//spell-checker: ignore TSESLint TSESTree
 import utils, { TSESLint } from "@typescript-eslint/experimental-utils";
 import ts from "typescript";
 import type { DeepMutableJson, ReadonlyJsonValue } from "../type-level/json";
