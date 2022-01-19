@@ -15,7 +15,7 @@ import {
     collectAllReferencedDeclarations,
     resolveUsingDeclarationsByRoots,
 } from "../alive-declaration-resolver";
-import { getParserServicesOrError } from "../ts-eslint-extensions";
+import { createRule, getParserServicesOrError } from "../ts-eslint-extensions";
 import { appendRoot, createCollector, RootCollector } from "../root-collector";
 import { collectExports, forEachExports } from "../ts-node-extensions";
 
@@ -97,7 +97,7 @@ function checkAllFileSemantics(context: RuleContext): ProgramSemantics {
             configLoadErrors,
             (rootFile) => ({
                 messageId: "__rootFile__not_found",
-                data: { rootFile },
+                data: { rootFiles: rootFile },
             }),
             (rootFile, exportName) => ({
                 messageId: "could_not_find_the__exportName__in__rootFile__",
@@ -164,7 +164,7 @@ function reportUnusedDeclaration(
         context.report({
             node: reportNode,
             messageId: "__varName__is_declared_but_never_used",
-            data: { varName },
+            data: { "varName:string": varName },
             suggest,
         });
     }
@@ -217,38 +217,6 @@ function checkProgram(
     });
 }
 
-// spell-checker:ignore TSESLint
-const clone = <T extends ReadonlyJsonValue>(json: T) =>
-    JSON.parse(JSON.stringify(json)) as DeepMutableJson<T>;
-
-type getMessageIds<TMessages extends MessagesKind> = cast<
-    string,
-    keyof TMessages
->;
-type getOptions<TSchemas extends SchemaList> = {
-    -readonly [i in keyof TSchemas]: typeOfSchema<TSchemas[i]>;
-};
-
-type MessagesKind = Record<string, string>;
-type MetadataWithoutSchema<TMessages extends MessagesKind> = Omit<
-    TSESLint.RuleMetaData<getMessageIds<TMessages>>,
-    "schema"
-> & {
-    messages?: TMessages;
-};
-
-const createRule = <TMessages extends MessagesKind, TSchema extends SchemaList>(
-    meta: MetadataWithoutSchema<TMessages>,
-    schema: TSchema,
-    create: TSESLint.RuleCreateFunction<
-        getMessageIds<TMessages>,
-        getOptions<TSchema>
-    >
-): TSESLint.RuleModule<getMessageIds<TMessages>, getOptions<TSchema>> => ({
-    meta: { ...meta, schema: clone(schema) },
-    create,
-});
-
 type Options = Parameters<typeof rule["create"]>[0]["options"];
 const rule = createRule(
     {
@@ -262,16 +230,16 @@ const rule = createRule(
         messages: {
             DEBUG_message: "{{message}}",
             __varName__is_declared_but_never_used:
-                "'{{varName}}' is declared but never used.",
+                "'{{varName:string}}' is declared but never used.",
             this_export_is_declared_but_never_used:
                 "this export is declared but never used.",
             remove_unused_element: "remove unused element.",
-            __rootFile__not_found: "'{{rootFile}}' not found.",
+            __rootFile__not_found: "'{{rootFile:string}}' not found.",
             could_not_find_the__exportName__in__rootFile__:
-                "could not find the '{{exportName}}' in '{{rootFile}}'.",
+                "could not find the '{{exportName:string}}' in '{{rootFile:string}}'.",
         },
         type: "suggestion",
-    },
+    } as const,
     [
         {
             type: "object",
