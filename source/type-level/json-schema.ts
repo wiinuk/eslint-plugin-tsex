@@ -6,8 +6,7 @@ type Schema = DeepReadonlyJson<utils.JSONSchema.JSONSchema4>;
 
 /** @internal */
 export type SchemaList = readonly Schema[];
-/** @internal */
-export type unreachable = never;
+type unreachable = never;
 type notImplementedErrorMessage = "❌error: not implemented";
 
 type getPropertyNameSet<TRequired extends Schema["required"]> =
