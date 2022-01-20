@@ -58,24 +58,22 @@ export function createProgramFileValidator<
 
     const parser = "@typescript-eslint/parser";
     const parserModule: TSESLint.Linter.ParserModule = {
-        parseForESLint(code, options): TSESLint.Linter.ESLintParseResult {
-            if (code !== "" || options?.filePath === undefined) {
+        parseForESLint(code, options) {
+            const filePath = options?.filePath;
+            if (code !== "" || filePath === undefined) {
                 return error`コードを指定することはできません。options.filePath でソースコードのパスを指定してください。`;
             }
-            code = getSourceText(options.filePath);
-            const { ast, services: parserServices } = parseAndGenerateServices(
-                code,
-                {
-                    filePath: options.filePath,
-                    errorOnTypeScriptSyntacticAndSemanticIssues: true,
-                    errorOnUnknownASTType: true,
-                    programs: [program],
-                    tokens: true,
-                    comment: true,
-                    loc: true,
-                    range: true,
-                }
-            );
+            code = getSourceText(filePath);
+            const { ast, services } = parseAndGenerateServices(code, {
+                filePath,
+                errorOnTypeScriptSyntacticAndSemanticIssues: true,
+                errorOnUnknownASTType: true,
+                programs: [program],
+                tokens: true,
+                comment: true,
+                loc: true,
+                range: true,
+            });
             const analyzeOptions = {};
             const mutableVisitorKeys: DeepNonReadonly<typeof visitorKeys> =
                 Object.create(null);
@@ -85,7 +83,8 @@ export function createProgramFileValidator<
             }
             return {
                 ast,
-                parserServices,
+                services,
+                parserServices: services,
                 visitorKeys: JSON.parse(JSON.stringify(visitorKeys)),
                 scopeManager: analyze(ast, analyzeOptions),
             };
