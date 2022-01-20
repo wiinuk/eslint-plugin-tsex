@@ -8,7 +8,8 @@ import rule, {
     Precedence,
 } from "./no-unused-pure-expression";
 
-function createVirtualHost(
+/** @internal */
+export function createVirtualHost(
     initialFiles: Iterable<readonly [fileName: string, contents: string]>
 ): ts.CompilerHost {
     const virtualFs = new Map<string, string>(initialFiles);
