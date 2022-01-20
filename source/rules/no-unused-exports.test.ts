@@ -21,6 +21,14 @@ function messageMatcher({ line, name }: { line: number; name: string }) {
         ],
     } as const;
 }
+function reportMatcher(...messages: [line: number, name: string][]) {
+    return {
+        fixed: false,
+        messages: messages.map(([line, name]) =>
+            messageMatcher({ line, name })
+        ),
+    };
+}
 
 const validator = createProgramFileValidator({
     ruleName: "no-unused-exports",
@@ -36,23 +44,46 @@ const validator = createProgramFileValidator({
         },
     ],
 });
-it("main.ts", () => {
-    expect(validator.validateFile("/dir/main.ts")).toMatchObject({
-        fixed: false,
-        messages: [
-            messageMatcher({ line: 5, name: "main" }),
-            messageMatcher({ line: 10, name: "_a" }),
-            messageMatcher({ line: 32, name: "Main" }),
-            messageMatcher({ line: 33, name: "_A" }),
-        ],
+describe("main.ts, lib.ts", () => {
+    it("標準設定", () => {
+        expect(validator.validateFile("/dir/main.ts")).toMatchObject(
+            reportMatcher([5, "main"], [10, "_a"], [32, "Main"], [33, "_A"])
+        );
+        expect(validator.validateFile("/dir/lib.ts")).toMatchObject(
+            reportMatcher([3, "sub"], [7, "Sub"])
+        );
     });
-});
-it("lib.ts", () => {
-    expect(validator.validateFile("/dir/lib.ts")).toMatchObject({
-        fixed: false,
-        messages: [
-            messageMatcher({ line: 3, name: "sub" }),
-            messageMatcher({ line: 7, name: "Sub" }),
-        ],
+    it("無視設定", () => {
+        function validate(path: string) {
+            return validator.validateFile(path, {
+                options: [{ ignorePattern: "^_" }],
+            });
+        }
+        expect(validate("/dir/main.ts")).toMatchObject(
+            reportMatcher([5, "main"], [32, "Main"])
+        );
+        expect(validate("/dir/lib.ts")).toMatchObject(
+            reportMatcher([3, "sub"], [7, "Sub"])
+        );
+    });
+    describe("ルート指定", () => {
+        it("設定ファイル", () => {
+            function validate(path: string) {
+                return validator.validateFile(path, {
+                    options: [{ roots: ["/dir/main", "main"] }],
+                });
+            }
+            expect(validate("/dir/main.ts")).toStrictEqual(
+                {}
+                // reportMatcher(
+                //     [10, "_a"],
+                //     [15, "isEven"],
+                //     [23, "isOdd"],
+                //     [33, "_A"],
+                //     [35, "IsEven"],
+                //     [39, "IsOdd"]
+                // )
+            );
+        });
     });
 });

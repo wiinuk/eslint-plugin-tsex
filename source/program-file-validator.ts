@@ -13,13 +13,16 @@ type DeepNonReadonly<T> = T extends Primitive
     ? T
     : { -readonly [P in keyof T]: DeepNonReadonly<T[P]> };
 
-interface ValidateOptions<
+interface CreateValidatorOptions<
     TMessages extends string,
     TOptions extends readonly unknown[]
 > {
     rule: TSESLint.RuleModule<TMessages, TOptions>;
     ruleName: string;
     sourceFiles: Iterable<Readonly<{ filePath: string; source: string }>>;
+}
+interface ValidateSettings<TOptions extends readonly unknown[]> {
+    options?: TOptions;
 }
 /** @internal */
 export function createProgramFileValidator<
@@ -29,7 +32,7 @@ export function createProgramFileValidator<
     ruleName,
     rule,
     sourceFiles,
-}: Readonly<ValidateOptions<TMessages, TOptions>>) {
+}: Readonly<CreateValidatorOptions<TMessages, TOptions>>) {
     const locale = Intl.NumberFormat().resolvedOptions().locale;
 
     const files = Array.from(sourceFiles);
@@ -95,13 +98,17 @@ export function createProgramFileValidator<
     linter.defineRule(ruleName, rule);
 
     return {
-        validateFile(filename: string) {
+        validateFile(
+            filename: string,
+            settings: Readonly<ValidateSettings<TOptions>> = {}
+        ) {
+            const { options = [] } = settings;
             return linter.verifyAndFix(
                 "",
                 {
                     parser,
                     rules: {
-                        [ruleName]: ["error"],
+                        [ruleName]: ["error", ...options],
                     },
                 },
                 { filename }
