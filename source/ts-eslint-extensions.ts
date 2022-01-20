@@ -12,7 +12,7 @@ type getMessageIds<TMessages extends MessagesKind> = cast<
     keyof TMessages
 >;
 type getOptions<TSchemas extends SchemaList> = {
-    -readonly [i in keyof TSchemas]: typeOfSchema<TSchemas[i]>;
+    -readonly [i in keyof TSchemas]?: typeOfSchema<TSchemas[i]>;
 };
 
 /** @internal */

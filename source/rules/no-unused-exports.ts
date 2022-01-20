@@ -52,7 +52,7 @@ function resolveUsingDeclarationsByAnyFile(context: RuleContext) {
 const defaultTootTagNames = ["root", "entrypoint"];
 function resolveRootsByJsDocTag(context: RuleContext) {
     const { program } = getParserServicesOrError(context);
-    const { rootTags } = context.options[0];
+    const { rootTags } = context.options[0] ?? {};
     const rootTagNames =
         rootTags === true ? defaultTootTagNames : rootTags ? rootTags : [];
 
@@ -74,7 +74,7 @@ interface ProgramSemantics {
     aliveSet: DeclarationSet;
 }
 function checkAllFileSemantics(context: RuleContext): ProgramSemantics {
-    const { roots = [] } = context.options[0];
+    const { roots = [] } = context.options[0] ?? {};
     const configLoadErrors: ReportDescriptorWithoutLocation[] = [];
 
     const rootDeclarations = resolveRootsByJsDocTag(context);
@@ -171,7 +171,7 @@ function collectRoots<
     TOptions extends readonly unknown[]
 >(
     collector: RootCollector<TMessageIds, TOptions>,
-    roots: NonNullable<Options[0]["roots"]>
+    roots: NonNullable<NonNullable<Options[0]>["roots"]>
 ) {
     for (const root of roots) {
         // ファイルの指定された名前の export 要素をルートに追加する
@@ -193,7 +193,7 @@ function checkProgram(
         context.report({ ...error, node });
     }
 
-    const { ignorePattern = null } = context.options[0];
+    const { ignorePattern = null } = context.options[0] ?? {};
     const ignoreRegex = ignorePattern ? new RegExp(ignorePattern) : null;
 
     const reporter: Reporter = {
