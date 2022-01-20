@@ -56,13 +56,12 @@ function tsFile(template: TemplateStringsArray, ...substitutions: unknown[]) {
         host,
         options: { target: ts.ScriptTarget.ES2015 },
     });
-    const diagnostics = [
-        ...program.getOptionsDiagnostics(),
-        ...program.getSyntacticDiagnostics(),
-        ...program.getSemanticDiagnostics(),
-    ];
+    const diagnostics = ts.getPreEmitDiagnostics(program);
     if (diagnostics.length !== 0) {
-        throw new Error(ts.formatDiagnostics(diagnostics, host));
+        return error`${ts.formatDiagnosticsWithColorAndContext(
+            diagnostics,
+            host
+        )}`;
     }
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     return { program, sourceFile: program.getSourceFile(fileName)! };
