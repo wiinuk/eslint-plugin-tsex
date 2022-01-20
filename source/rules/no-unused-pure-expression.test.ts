@@ -1,6 +1,7 @@
 import ts from "typescript";
 import { error } from "../standard-extensions";
 import { createTester } from "../ts-eslint-tester-extensions";
+import { createVirtualHost } from "../ts-node-extensions";
 import rule, {
     findSideEffectNode,
     getPrecedence,
@@ -8,45 +9,6 @@ import rule, {
     Precedence,
 } from "./no-unused-pure-expression";
 
-/** @internal */
-export function createVirtualHost(
-    initialFiles: Iterable<readonly [fileName: string, contents: string]>
-): ts.CompilerHost {
-    const virtualFs = new Map<string, string>(initialFiles);
-    return {
-        getSourceFile(fileName, languageVersion) {
-            const sourceText =
-                virtualFs.get(fileName) || ts.sys.readFile(fileName);
-            return sourceText !== undefined
-                ? ts.createSourceFile(fileName, sourceText, languageVersion)
-                : undefined;
-        },
-        getDefaultLibFileName(options) {
-            return ts.getDefaultLibFilePath(options);
-        },
-        writeFile(fileName, content) {
-            virtualFs.set(fileName, content);
-        },
-        fileExists(fileName) {
-            return virtualFs.has(fileName) || ts.sys.fileExists(fileName);
-        },
-        readFile(fileName) {
-            return virtualFs.get(fileName) || ts.sys.readFile(fileName);
-        },
-        getCanonicalFileName(fileName) {
-            return this.useCaseSensitiveFileNames()
-                ? fileName
-                : fileName.toLowerCase();
-        },
-        getCurrentDirectory: ts.sys.getCurrentDirectory,
-        getNewLine() {
-            return ts.sys.newLine;
-        },
-        useCaseSensitiveFileNames() {
-            return ts.sys.useCaseSensitiveFileNames;
-        },
-    };
-}
 function tsFile(template: TemplateStringsArray, ...substitutions: unknown[]) {
     const source = String.raw(template, ...substitutions);
     const fileName = "test.ts";

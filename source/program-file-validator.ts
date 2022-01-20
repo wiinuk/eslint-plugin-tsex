@@ -1,12 +1,12 @@
 import { TSESLint } from "@typescript-eslint/experimental-utils";
 import ts, { ModuleResolutionKind } from "typescript";
-import { createVirtualHost } from "./rules/no-unused-pure-expression.test";
 import {
     parseAndGenerateServices,
     visitorKeys,
 } from "@typescript-eslint/typescript-estree";
 import { analyze } from "@typescript-eslint/scope-manager";
 import { error } from "./standard-extensions";
+import { createVirtualHost } from "./ts-node-extensions";
 
 type Primitive = undefined | null | boolean | number | bigint | string | symbol;
 type DeepNonReadonly<T> = T extends Primitive
